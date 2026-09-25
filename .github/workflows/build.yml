@@ -1,29 +1,41 @@
-name: Build Telegram APK
+name: Patch APK for MITM Interception
 on:
-  workflow_dispatch: # Allows manual triggering
+  workflow_dispatch:
+    inputs:
+      apk_url:
+        description: 'Direct download URL of the target APK'
+        required: true
+        default: 'https://telegram.org/dl/android/apk'
 
 jobs:
-  build:
+  patch:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease
+      - name: Download Target APK
+        run: |
+          curl -L "${{ github.event.inputs.apk_url }}" -o original.apk
+          echo "Downloaded APK size: $(du -h original.apk | cut -f1)"
 
-      - name: Upload APK
+      - name: Install apk-mitm
+        run: npm install -g apk-mitm
+
+      - name: Patch APK
+        run: apk-mitm original.apk
+
+      - name: Upload Patched APK
         uses: actions/upload-artifact@v4
         with:
-          name: telegram-modified
-          path: TMessagesProj/build/outputs/apk/release/*.apk
+          name: mitm-ready-telegram
+          path: original-patched.apk
           retention-days: 7
